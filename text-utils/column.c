@@ -98,6 +98,7 @@ struct column_control {
 	size_t  mincolsep;	/* minimal spaces between columns */
 
 	bool	greedy,
+		word_wrap,
 		json,
 		header_repeat,
 		header_as_columns,	/* --table-header-as-columns */
@@ -715,9 +716,15 @@ static void modify_table(struct column_control *ctl)
 		apply_columnflag_from_list(ctl, ctl->tab_colnoextrem,
 				SCOLS_FL_NOEXTREMES , N_("failed to parse --table-noextreme list"));
 
-	if (ctl->tab_colwrap)
+	if (ctl->tab_colwrap) {
+		int flags = SCOLS_FL_WRAP;
+
+		if (ctl->word_wrap)
+			flags |= SCOLS_FL_WRAP_WORD;
+
 		apply_columnflag_from_list(ctl, ctl->tab_colwrap,
-				SCOLS_FL_WRAP , N_("failed to parse --table-wrap list"));
+				flags, N_("failed to parse --table-wrap list"));
+	}
 
 	if (ctl->wrap_separator && ctl->tab_colwrap) {
 		struct libscols_iter *itr_col, *itr_line;
@@ -1083,6 +1090,7 @@ static void __attribute__((__noreturn__)) usage(void)
 	fputs(_(" -T, --table-truncate <columns>   truncate text in the columns when necessary\n"), out);
 	fputs(_(" -W, --table-wrap <columns>       wrap text in the columns when necessary\n"), out);
 	fputs(_("     --wrap-separator <string>    wrap at this separator (requires --table-wrap)\n"), out);
+	fputs(_("     --word-wrap                  wrap text at word boundaries (requires --table-wrap)\n"), out);
 	fputs(_(" -L, --keep-empty-lines           don't ignore empty lines\n"), out);
 	fputs(_(" -J, --json                       use JSON output format for table\n"), out);
 
@@ -1127,6 +1135,7 @@ int main(int argc, char **argv)
 		OPT_COLORSCHEME,
 		OPT_WRAP_SEPARATOR,
 		OPT_MINOUT,
+		OPT_WORD_WRAP,
 	};
 
 	static const struct option longopts[] =
@@ -1164,6 +1173,7 @@ int main(int argc, char **argv)
 		{ "tree-parent",         required_argument, NULL, 'p' },
 		{ "use-spaces",          required_argument, NULL, 'S' },
 		{ "version",             no_argument,       NULL, 'V' },
+		{ "word-wrap",		 no_argument,       NULL, OPT_WORD_WRAP },
 		{ "wrap-separator",      required_argument, NULL, OPT_WRAP_SEPARATOR },
 		{ NULL,	0, NULL, 0 },
 	};
@@ -1292,7 +1302,9 @@ int main(int argc, char **argv)
 		case OPT_WRAP_SEPARATOR:
 			ctl.wrap_separator = optarg;
 			break;
-
+		case OPT_WORD_WRAP:
+			ctl.word_wrap = true;
+			break;
 		case 'h':
 			usage();
 		case 'V':
@@ -1319,6 +1331,9 @@ int main(int argc, char **argv)
 		ctl.tab_colhide || ctl.tab_coltrunc || ctl.tab_colnoextrem ||
 		ctl.tab_colright || ctl.tab_colnames || ctl.tab_columns))
 		errx(EXIT_FAILURE, _("option --table required for all --table-*"));
+
+	if (ctl.word_wrap && !ctl.tab_colwrap)
+		errx(EXIT_FAILURE, _("option --table-wrap required for --word-wrap"));
 
 	if (!ctl.tab_colnames && !ctl.tab_columns && !ctl.header_as_columns && ctl.json)
 		errx(EXIT_FAILURE, _("option --table-columns or --table-column required for --json"));
