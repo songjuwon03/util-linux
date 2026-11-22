@@ -453,6 +453,56 @@ static void print_newline_padding(struct libscols_table *tb,
 	fputs_color_line_close(tb);
 }
 
+//줄바꿈 개선 함수 추가 시작 한 곳
+
+static void move_word_wrap(struct libscols_column *cl,
+                           char *data, size_t *len)
+{
+    size_t offset;
+    char *space;
+
+    offset = mbs_safe_decode_size(data);
+
+    if ((cl->flags & SCOLS_FL_WRAP_WORD) && cl->wrap_cur) {
+
+    size_t remaining = cl->wrap_datasz -
+            (size_t)(cl->wrap_cur - cl->wrap_data);
+
+    /* Check whether the line ends at a word boundary. */
+    if (offset < remaining && cl->wrap_cur[offset] == ' ') {
+        while (offset < remaining && cl->wrap_cur[offset] == ' ')
+            offset++;
+
+        scols_column_move_wrap(cl, offset);
+        return;
+    }
+
+    space = strrchr(data, ' ');
+
+
+        if (space) {
+            while (space > data && space[-1] == ' ')
+                space--;
+
+            if (space > data) {
+
+                *space = '\0';
+                *len = mbs_width(data);
+                offset = mbs_safe_decode_size(data);
+
+                while (offset < remaining &&
+                       cl->wrap_cur[offset] == ' ')
+                    offset++;
+            }
+        }
+    }
+
+    scols_column_move_wrap(cl, offset);
+}
+
+
+
+
 static int print_pending_data(struct libscols_table *tb, struct ul_buffer *buf)
 {
 	struct libscols_line *ln;
@@ -489,7 +539,7 @@ static int print_pending_data(struct libscols_table *tb, struct ul_buffer *buf)
 		bytes = mbs_truncate(data, &len);
 
 		if (bytes != (size_t) -1 && bytes > 0)
-			scols_column_move_wrap(cl, mbs_safe_decode_size(data));
+			move_word_wrap(cl, data, &len);
 	}
 
 	fputs_color_cell_open(tb, cl, ln, ce);
@@ -678,7 +728,8 @@ static int print_data(struct libscols_table *tb, struct ul_buffer *buf)
 		bytes = mbs_truncate(data, &len);
 
 		if (bytes != (size_t) -1 && bytes > 0)
-			scols_column_move_wrap(cl, mbs_safe_decode_size(data));
+			move_word_wrap(cl, data, &len);
+
 	}
 
 	if (bytes == (size_t) -1) {
