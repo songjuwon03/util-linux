@@ -1335,6 +1335,9 @@ int main(int argc, char **argv)
 	if (ctl.word_wrap && !ctl.tab_colwrap)
 		errx(EXIT_FAILURE, _("option --table-wrap required for --word-wrap"));
 
+	if (ctl.word_wrap && ctl.wrap_separator)
+		errx(EXIT_FAILURE, _("--word-wrap and --wrap-separator cannot be used together"));
+
 	if (!ctl.tab_colnames && !ctl.tab_columns && !ctl.header_as_columns && ctl.json)
 		errx(EXIT_FAILURE, _("option --table-columns or --table-column required for --json"));
 
